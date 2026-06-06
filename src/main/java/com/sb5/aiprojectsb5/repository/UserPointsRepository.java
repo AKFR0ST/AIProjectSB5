@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface UserPointsRepository extends JpaRepository<UserPoints, UUID> {
+public interface UserPointsRepository extends JpaRepository<UserPoints, Integer> {
 
     Optional<UserPoints> findByUserId(UUID userId);
 

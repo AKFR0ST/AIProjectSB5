@@ -17,7 +17,10 @@ import java.util.UUID;
 public class UserPoints {
 
     @Id
-    @Column(name = "user_id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
+
+    @Column(name = "user_id", nullable = false, unique = true)
     private UUID userId;
 
     @Column(name = "balance")
@@ -27,9 +30,4 @@ public class UserPoints {
     @Column(name = "updated_at")
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
-
-    @OneToOne(fetch = FetchType.LAZY)
-    @MapsId
-    @JoinColumn(name = "user_id")
-    private User user;
 }

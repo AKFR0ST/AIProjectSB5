@@ -30,7 +30,7 @@ public class UserService {
                             .build();
                     User saved = userRepository.save(user);
 
-                    // Инициализируем баллы
+                    // Инициализируем баллы - упрощённый способ
                     UserPoints points = UserPoints.builder()
                             .userId(saved.getId())
                             .balance(0)
@@ -52,10 +52,14 @@ public class UserService {
                     sessionRepository.save(session);
                 });
 
-        VisitSession session = VisitSession.builder()
-                .user(User.builder().id(userId).build())
-                .startedAt(LocalDateTime.now())
-                .build();
+        // Создаём сессию вручную, без Builder
+        VisitSession session = new VisitSession();
+        session.setStartedAt(LocalDateTime.now());
+
+        // Устанавливаем пользователя (только ID)
+        User user = new User();
+        user.setId(userId);
+        session.setUser(user);
 
         return sessionRepository.save(session);
     }

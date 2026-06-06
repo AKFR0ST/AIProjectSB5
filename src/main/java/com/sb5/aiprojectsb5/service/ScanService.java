@@ -17,11 +17,16 @@ public class ScanService {
     private final PlaceRepository placeRepository;
     private final UserPointsRepository pointsRepository;
     private final PointTransactionRepository transactionRepository;
+    private final VisitSessionRepository sessionRepository;
 
     private static final int POINTS_PER_VISIT = 10;
 
     @Transactional
     public VisitTrack scanQR(String qrCode, UUID sessionId, Integer placeId) {
+        // Загружаем сессию с пользователем
+        VisitSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Сессия не найдена"));
+
         // Проверяем, не сканировали ли уже это место в текущей сессии
         if (trackRepository.existsBySessionIdAndPlaceId(sessionId, placeId)) {
             throw new RuntimeException("Это место уже отсканировано в текущей сессии");
@@ -33,7 +38,7 @@ public class ScanService {
         }
 
         VisitTrack track = VisitTrack.builder()
-                .session(VisitSession.builder().id(sessionId).build())
+                .session(session)
                 .place(placeOpt.get())
                 .qrCode(qrCode)
                 .scannedAt(LocalDateTime.now())
@@ -42,18 +47,18 @@ public class ScanService {
         VisitTrack saved = trackRepository.save(track);
 
         // Начисляем баллы за посещение
-        addPointsForVisit(saved);
+        addPointsForVisit(saved, session);
 
         return saved;
     }
 
-    private void addPointsForVisit(VisitTrack track) {
-        UUID userId = track.getSession().getUser().getId();
+    private void addPointsForVisit(VisitTrack track, VisitSession session) {
+        UUID userId = session.getUser().getId();
 
         pointsRepository.addPoints(userId, POINTS_PER_VISIT);
 
         PointTransaction transaction = PointTransaction.builder()
-                .user(User.builder().id(userId).build())
+                .user(session.getUser())
                 .amount(POINTS_PER_VISIT)
                 .reason("visit")
                 .referenceId(track.getId())

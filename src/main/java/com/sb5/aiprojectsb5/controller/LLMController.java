@@ -2,8 +2,10 @@ package com.sb5.aiprojectsb5.controller;
 
 import com.sb5.aiprojectsb5.LLMInterface;
 import com.sb5.aiprojectsb5.dto.llm.LlmRequest;
+import com.sb5.aiprojectsb5.entity.Place;
 import com.sb5.aiprojectsb5.entity.VisitTrack;
 import com.sb5.aiprojectsb5.entity.llm.LLMServices;
+import com.sb5.aiprojectsb5.repository.PlaceRepository;
 import com.sb5.aiprojectsb5.repository.VisitTrackRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 public class LLMController {
     private final LLMInterface llmInterface;
     private final VisitTrackRepository trackRepository;
+    private final PlaceRepository placeRepository;
 
     @Value("${general.llm.default}")
     private LLMServices llmDefault;
@@ -66,10 +69,26 @@ public class LLMController {
     }
 
     private String buildContextPrompt(List<VisitTrack> history, String preferences) {
+        // Получаем все доступные места из базы
+        List<Place> allPlaces = placeRepository.findAll();
+
+        // Формируем список мест для AI
+        String placesList = allPlaces.stream()
+                .map(p -> String.format("ID: %d, Название: %s, Тип: %s, Теги: %s",
+                        p.getId(), p.getName(), p.getType(), p.getTags()))
+                .collect(Collectors.joining("\n"));
+
         if (history.isEmpty()) {
-            return "Ты гид ГЭС-2. У пользователя нет истории посещений. " +
-                    "Порекомендуй популярный маршрут на 30 минут. Ответ должен быть кратким и дружелюбным. " +
-                    "Дополнительные пожелания: " + preferences;
+            return String.format("""
+            Ты гид ГЭС-2. У пользователя нет истории посещений.
+            
+            Вот список реальных мест в ГЭС-2:
+            %s
+            
+            Порекомендуй 3 места из этого списка (ТОЛЬКО из списка выше!).
+            Ответ должен быть кратким, дружелюбным и содержать конкретные названия мест.
+            Дополнительные пожелания пользователя: %s
+            """, placesList, preferences);
         }
 
         // Анализируем теги из истории
@@ -77,13 +96,36 @@ public class LLMController {
                 .map(t -> t.getPlace().getTags())
                 .filter(Objects::nonNull)
                 .flatMap(t -> Arrays.stream(t.split(",")))
+                .map(String::trim)
                 .distinct()
                 .limit(5)
                 .collect(Collectors.joining(", "));
 
-        return "Ты гид ГЭС-2. Проанализируй историю посещений пользователя (теги: " + tags + "). " +
-                "Порекомендуй персональный маршрут на основе его интересов. " +
-                "Дополнительные пожелания: " + preferences +
-                "Ответ должен быть кратким (3-5 предложений) и дружелюбным.";
+        // Получаем ID уже посещённых мест
+        List<Integer> visitedIds = history.stream()
+                .map(t -> t.getPlace().getId())
+                .toList();
+
+        // Фильтруем непосещённые места
+        String availablePlaces = allPlaces.stream()
+                .filter(p -> !visitedIds.contains(p.getId()))
+                .map(p -> String.format("ID: %d, Название: %s, Тип: %s, Теги: %s",
+                        p.getId(), p.getName(), p.getType(), p.getTags()))
+                .collect(Collectors.joining("\n"));
+
+        return String.format("""
+        Ты гид ГЭС-2. Проанализируй историю посещений пользователя.
+        
+        История пользователя (интересы по тегам): %s
+        
+        Вот список доступных мест в ГЭС-2 (ТОЛЬКО из этого списка!):
+        %s
+        
+        Порекомендуй 3 места из списка выше, которые пользователь ещё не посещал.
+        Не выдумывай места, используй ТОЛЬКО названия из списка.
+        Ответ должен быть кратким (3-5 предложений) и дружелюбным.
+        
+        Дополнительные пожелания: %s
+        """, tags, availablePlaces, preferences);
     }
 }
