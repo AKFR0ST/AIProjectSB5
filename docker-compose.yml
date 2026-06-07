@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: ges2_postgres
+    environment:
+      POSTGRES_DB: sb5_db
+      POSTGRES_USER: sb5_user
+      POSTGRES_PASSWORD: sb5_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sb5_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: ges2_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "8088:8088"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/sb5_db
+      - SPRING_DATASOURCE_USERNAME=sb5_user
+      - SPRING_DATASOURCE_PASSWORD=sb5_password
+      - gigachat.authorization.key=${GIGACHAT_KEY}
+      - cloudru.authorization.key=${CLOUDRU_KEY}
+    restart: always
+
+volumes:
+  postgres_data:

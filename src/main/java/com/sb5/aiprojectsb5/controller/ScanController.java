@@ -1,14 +1,16 @@
 package com.sb5.aiprojectsb5.controller;
 
+import com.sb5.aiprojectsb5.dto.ReactionRequest;
+import com.sb5.aiprojectsb5.entity.Reaction;
 import com.sb5.aiprojectsb5.entity.VisitTrack;
 import com.sb5.aiprojectsb5.service.ScanService;
+import com.sb5.aiprojectsb5.service.ReactionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,15 +21,9 @@ import java.util.UUID;
 public class ScanController {
 
     private final ScanService scanService;
+    private final ReactionService reactionService;  // Добавить
 
-    @Operation(
-            summary = "Сканировать QR-код локации",
-            description = "При сканировании QR-кода у экспоната/локации начисляются баллы и сохраняется цифровой след"
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Сканирование успешно"),
-            @ApiResponse(responseCode = "400", description = "Ошибка сканирования (уже было или место не найдено)")
-    })
+    @Operation(summary = "Сканировать QR-код локации")
     @PostMapping
     public ResponseEntity<?> scanPlace(@RequestBody Map<String, Object> request) {
         String qrCode = (String) request.get("qrCode");
@@ -44,6 +40,29 @@ public class ScanController {
                     "trackId", track.getId(),
                     "placeName", track.getPlace().getName(),
                     "pointsEarned", 10
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    @Operation(summary = "Оставить реакцию на посещённое место")
+    @PostMapping("/reaction")
+    public ResponseEntity<?> addReaction(@RequestBody ReactionRequest request) {
+        try {
+            Reaction reaction = reactionService.addReaction(
+                    request.getTrackId(),
+                    request.getReactionType(),
+                    request.getComment()
+            );
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "reactionId", reaction.getId(),
+                    "message", "Спасибо за отзыв! +5 бонусов"
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(

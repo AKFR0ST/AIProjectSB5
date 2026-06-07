@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ReactionRepository extends JpaRepository<Reaction, Integer> {
+
+    boolean existsByTrackId(Integer trackId);
     
     List<Reaction> findByTrackSessionUserId(UUID userId);
     

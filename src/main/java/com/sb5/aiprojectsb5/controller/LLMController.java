@@ -1,12 +1,17 @@
 package com.sb5.aiprojectsb5.controller;
 
 import com.sb5.aiprojectsb5.LLMInterface;
+import com.sb5.aiprojectsb5.dto.RouteStepDto;
+import com.sb5.aiprojectsb5.dto.SaveRouteRequest;
 import com.sb5.aiprojectsb5.dto.llm.LlmRequest;
 import com.sb5.aiprojectsb5.entity.Place;
+import com.sb5.aiprojectsb5.entity.SavedRoute;
 import com.sb5.aiprojectsb5.entity.VisitTrack;
 import com.sb5.aiprojectsb5.entity.llm.LLMServices;
 import com.sb5.aiprojectsb5.repository.PlaceRepository;
+import com.sb5.aiprojectsb5.repository.VisitSessionRepository;
 import com.sb5.aiprojectsb5.repository.VisitTrackRepository;
+import com.sb5.aiprojectsb5.service.RouteService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +33,8 @@ public class LLMController {
     private final LLMInterface llmInterface;
     private final VisitTrackRepository trackRepository;
     private final PlaceRepository placeRepository;
+    private final RouteService routeService;
+    private final VisitSessionRepository sessionRepository;
 
     @Value("${general.llm.default}")
     private LLMServices llmDefault;
@@ -128,4 +135,97 @@ public class LLMController {
         Дополнительные пожелания: %s
         """, tags, availablePlaces, preferences);
     }
+
+    // Метод для получения и сохранения маршрута
+    @PostMapping("/recommend-route-and-save")
+    public ResponseEntity<?> recommendRouteAndSave(@RequestBody Map<String, Object> request) {
+        try {
+            String userId = (String) request.get("userId");
+            String sessionId = (String) request.get("sessionId");
+            String preferences = (String) request.getOrDefault("preferences", "");
+
+            // Получаем историю пользователя
+            List<VisitTrack> history = trackRepository.findAllByUserId(UUID.fromString(userId));
+
+            // Формируем промпт с контекстом
+            String prompt = buildContextPrompt(history, preferences);
+
+            LlmRequest llmRequest = new LlmRequest();
+            llmRequest.setRole("assistant");
+            llmRequest.setPrompt(prompt);
+
+            String aiResponse = llmInterface.sendTextToTextRequest(llmRequest, llmDefault);
+
+            // Парсим рекомендации из AI ответа и создаём шаги маршрута
+            List<Map<String, Object>> steps = parseAiResponseToSteps(aiResponse);
+
+            // Сохраняем маршрут
+            SaveRouteRequest saveRequest = new SaveRouteRequest();
+            saveRequest.setUserId(UUID.fromString(userId));
+            saveRequest.setSessionId(UUID.fromString(sessionId));
+            saveRequest.setAiRecommendation(aiResponse);
+            // Преобразуем steps в RouteStepDto
+            List<RouteStepDto> stepDtos = steps.stream().map(step -> {
+                RouteStepDto dto = new RouteStepDto();
+                dto.setPlaceId((Integer) step.get("placeId"));
+                dto.setPlaceName((String) step.get("placeName"));
+                dto.setType((String) step.get("type"));
+                dto.setOrderNumber((Integer) step.get("orderNumber"));
+                return dto;
+            }).collect(Collectors.toList());
+            saveRequest.setSteps(stepDtos);
+
+            SavedRoute savedRoute = routeService.saveRoute(saveRequest);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "route", aiResponse,
+                    "savedRouteId", savedRoute.getId()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
+    private List<Map<String, Object>> parseAiResponseToSteps(String aiResponse) {
+        // Простой парсинг - можно улучшить, попросив AI возвращать JSON
+        List<Map<String, Object>> steps = new ArrayList<>();
+
+        // Пример: извлекаем ID мест из текста (временно)
+        // В идеале - попросить AI вернуть JSON с ID мест
+        List<Place> allPlaces = placeRepository.findAll();
+
+        // Простой алгоритм: рекомендует первые 3 непосещённых места
+        int order = 1;
+        for (Place place : allPlaces.stream().limit(3).collect(Collectors.toList())) {
+            Map<String, Object> step = new HashMap<>();
+            step.put("placeId", place.getId());
+            step.put("placeName", place.getName());
+            step.put("type", place.getType());
+            step.put("orderNumber", order++);
+            steps.add(step);
+        }
+
+        return steps;
+    }
+
+    @PostMapping("/save-route")
+    public ResponseEntity<?> saveRouteManually(@RequestBody SaveRouteRequest request) {
+        try {
+            SavedRoute savedRoute = routeService.saveRoute(request);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "savedRouteId", savedRoute.getId()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            ));
+        }
+    }
+
 }

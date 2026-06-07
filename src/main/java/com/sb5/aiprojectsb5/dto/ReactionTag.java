@@ -1,4 +1,4 @@
-package com.sb5.aiprojectsb5.dto.llm;
+package com.sb5.aiprojectsb5.dto;
 
 import com.sb5.aiprojectsb5.entity.Reaction;
 import jakarta.persistence.*;

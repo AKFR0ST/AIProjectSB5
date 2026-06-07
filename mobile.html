@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ГЭС-2 AI Компаньон</title>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            padding: 20px;
+            padding-bottom: 80px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: #1e1e1e;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid #2c2c2c;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 0 4px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff 0%, #ffd700 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .badge {
+            background: #2c2c2c;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffd700;
+        }
+
+        button, .btn {
+            background: #ffd700;
+            color: #000000;
+            border: none;
+            padding: 14px 20px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.98);
+            opacity: 0.8;
+        }
+
+        button.secondary {
+            background: #2c2c2c;
+            color: #ffd700;
+            border: 1px solid #ffd700;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 14px;
+            background: #2c2c2c;
+            border: 1px solid #3c3c3c;
+            border-radius: 14px;
+            color: #ffffff;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        textarea {
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        .place-item {
+            background: #2c2c2c;
+            padding: 16px;
+            border-radius: 14px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .place-item:active {
+            background: #3c3c3c;
+            transform: scale(0.98);
+        }
+
+        .place-name {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 6px;
+        }
+
+        .place-meta {
+            font-size: 12px;
+            color: #aaa;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .place-type {
+            color: #ffd700;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 12px;
+            background: #1e1e1e;
+            border: none;
+            border-radius: 14px;
+            color: #aaa;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .tab.active {
+            background: #ffd700;
+            color: #000;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Модалка сканера */
+        .scanner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .scanner-container {
+            width: 100%;
+            max-width: 400px;
+            background: #000;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .scanner-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: #1e1e1e;
+        }
+
+        .close-scanner {
+            background: #ff4444;
+            padding: 8px 16px;
+            width: auto;
+        }
+
+        #qr-reader {
+            width: 100%;
+            min-height: 400px;
+        }
+
+        .manual-input {
+            margin-top: 16px;
+            padding: 12px;
+            background: #1e1e1e;
+            border-radius: 14px;
+        }
+    </style>
+</head>
+<body>
+<div class="container" id="app">
+    <!-- Экран авторизации -->
+    <div id="authScreen">
+        <div class="card" style="margin-top: 40px; text-align: center;">
+            <h1 style="margin-bottom: 16px;">🎨 ГЭС-2 AI</h1>
+            <p style="color: #aaa; margin-bottom: 24px;">Персональный помощник по выставке</p>
+            <button id="authScanBtn">📷 Сканировать QR бейджа</button>
+            <div style="margin: 16px 0; color: #666;">или</div>
+            <input type="text" id="manualBadgeId" placeholder="Введите ID бейджа">
+            <input type="text" id="manualPhone" placeholder="Телефон (опционально)">
+            <button id="manualLoginBtn" class="secondary">Войти по ID</button>
+        </div>
+    </div>
+
+    <!-- Главное приложение -->
+    <div id="mainApp" class="hidden">
+        <div class="header">
+            <h1>ГЭС-2</h1>
+            <div class="badge" id="pointsValue">0 баллов</div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="places">📍 Места</button>
+            <button class="tab" data-tab="route">🤖 Маршрут</button>
+            <button class="tab" data-tab="profile">👤 Профиль</button>
+        </div>
+
+        <!-- Вкладка Места -->
+        <div id="placesTab">
+            <button id="scanPlaceBtn" class="secondary" style="margin-bottom: 16px;">📷 Сканировать место</button>
+            <div id="placesList"></div>
+        </div>
+
+        <!-- Вкладка AI Маршрут -->
+        <div id="routeTab" class="hidden">
+            <div class="card">
+                <textarea id="preferencesInput" placeholder="Расскажите о своих предпочтениях...&#10;Например: люблю архитектуру, интересуюсь современным искусством, хочу посмотреть инсталляции" rows="3"></textarea>
+                <button id="getRouteBtn">🤖 Получить рекомендацию</button>
+            </div>
+            <div id="routeResult"></div>
+        </div>
+
+        <!-- Вкладка Профиль -->
+        <div id="profileTab" class="hidden">
+            <div class="card">
+                <h3 style="margin-bottom: 16px;">📊 Статистика</h3>
+                <div id="statsContent"></div>
+            </div>
+            <div class="card">
+                <h3 style="margin-bottom: 16px;">❤️ Мои оценки</h3>
+                <div id="reactionsList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========== Конфигурация ==========
+    const API_URL = '/api';
+    let html5QrCode = null;
+
+    // ========== Состояние ==========
+    let userId = null;
+    let sessionId = null;
+    let currentTrackId = null;
+    let lastRecommendation = null;
+
+    // ========== DOM элементы ==========
+    const authScreen = document.getElementById('authScreen');
+    const mainApp = document.getElementById('mainApp');
+    const pointsValue = document.getElementById('pointsValue');
+
+    // ========== API вызовы ==========
+    const api = {
+        login: async (qrCode, phone) => {
+            const res = await fetch(`${API_URL}/auth/scan-qr`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qrCode, phone: phone || null })
+            });
+            return res.json();
+        },
+
+        scanPlace: async (qrCode, sessionId, placeId) => {
+            const res = await fetch(`${API_URL}/scan`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qrCode, sessionId, placeId })
+            });
+            return res.json();
+        },
+
+        addReaction: async (trackId, reactionType, comment) => {
+            const res = await fetch(`${API_URL}/scan/reaction`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trackId, reactionType, comment: comment || '' })
+            });
+            return res.json();
+        },
+
+        getStats: async (userId) => {
+            const res = await fetch(`${API_URL}/profile/${userId}/stats`);
+            return res.json();
+        },
+
+        getPlaces: async () => {
+            const res = await fetch(`${API_URL}/places`);
+            return res.json();
+        },
+
+        recommendRoute: async (userId, preferences) => {
+            const res = await fetch(`${API_URL}/llm/recommend-route`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, preferences: preferences || '' })
+            });
+            return res.json();
+        },
+
+        saveRoute: async (userId, sessionId, aiRecommendation, steps) => {
+            const res = await fetch(`${API_URL}/llm/save-route`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, sessionId, aiRecommendation, steps: steps || [] })
+            });
+            return res.json();
+        }
+    };
+
+    // ========== QR Сканер ==========
+    async function startScanner(onSuccess, context) {
+        // Создаём модальное окно
+        const overlay = document.createElement('div');
+        overlay.className = 'scanner-overlay';
+        overlay.innerHTML = `
+            <div class="scanner-container">
+                <div class="scanner-header">
+                    <span>📷 Сканирование QR-кода</span>
+                    <button class="close-scanner" style="width: auto; padding: 6px 12px;">✕ Закрыть</button>
+                </div>
+                <div id="qr-reader" style="width: 100%;"></div>
+                <div class="manual-input">
+                    <input type="text" id="manualQrInput" placeholder="Или введите QR-код вручную">
+                    <button id="manualSubmitBtn">Подтвердить</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        const closeBtn = overlay.querySelector('.close-scanner');
+        const manualInput = overlay.querySelector('#manualQrInput');
+        const manualBtn = overlay.querySelector('#manualSubmitBtn');
+
+        // Закрытие сканера
+        const closeScanner = () => {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
+                }).catch(() => {});
+            }
+            overlay.remove();
+        };
+
+        closeBtn.onclick = closeScanner;
+
+        // Ручной ввод
+        manualBtn.onclick = () => {
+            const qrValue = manualInput.value.trim();
+            if (qrValue) {
+                closeScanner();
+                onSuccess(qrValue);
+            } else {
+                alert('Введите QR-код');
+            }
+        };
+
+        // Запускаем камеру
+        html5QrCode = new Html5Qrcode("qr-reader");
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        try {
+            await html5QrCode.start(
+                { facingMode: "environment" }, // задняя камера
+                config,
+                (decodedText) => {
+                    // Успешное сканирование
+                    closeScanner();
+                    onSuccess(decodedText);
+                },
+                (errorMessage) => {
+                    // Ошибки игнорируем (это нормально при поиске QR)
+                    // console.log(errorMessage);
+                }
+            );
+        } catch (err) {
+            console.error("Ошибка запуска камеры:", err);
+            alert("Не удалось запустить камеру. Проверьте разрешения.\nИспользуйте ручной ввод.");
+            // Показываем ручной ввод активнее
+            manualInput.placeholder = "Введите QR-код (камера недоступна)";
+        }
+    }
+
+    // ========== Авторизация ==========
+    async function login(qrCode, phone) {
+        const data = await api.login(qrCode, phone);
+        if (data.userId) {
+            userId = data.userId;
+            sessionId = data.sessionId;
+            localStorage.setItem('ges2_userId', userId);
+            localStorage.setItem('ges2_sessionId', sessionId);
+            authScreen.classList.add('hidden');
+            mainApp.classList.remove('hidden');
+            await loadPlaces();
+            await updatePoints();
+            switchTab('places');
+        } else {
+            alert('Ошибка входа: ' + JSON.stringify(data));
+        }
+    }
+
+    // Проверка сохранённой сессии
+    const savedUserId = localStorage.getItem('ges2_userId');
+    const savedSessionId = localStorage.getItem('ges2_sessionId');
+    if (savedUserId && savedSessionId) {
+        userId = savedUserId;
+        sessionId = savedSessionId;
+        authScreen.classList.add('hidden');
+        mainApp.classList.remove('hidden');
+        loadPlaces();
+        updatePoints();
+    }
+
+    // Обработчики авторизации
+    document.getElementById('authScanBtn').onclick = () => {
+        startScanner(async (qrCode) => {
+            const phone = document.getElementById('manualPhone').value;
+            await login(qrCode, phone);
+        }, 'auth');
+    };
+
+    document.getElementById('manualLoginBtn').onclick = () => {
+        const badgeId = document.getElementById('manualBadgeId').value.trim();
+        if (badgeId) login(badgeId, document.getElementById('manualPhone').value);
+        else alert('Введите ID бейджа');
+    };
+
+    // ========== Загрузка мест ==========
+    async function loadPlaces() {
+        const places = await api.getPlaces();
+        const container = document.getElementById('placesList');
+        if (!places.length) {
+            container.innerHTML = '<div class="card">Нет мест в базе данных</div>';
+            return;
+        }
+        container.innerHTML = places.map(place => `
+            <div class="place-item" onclick="scanPlace(${place.id}, '${place.name.replace(/'/g, "\\'")}')">
+                <div class="place-name">${place.name}</div>
+                <div class="place-meta">
+                    <span class="place-type">${place.type}</span>
+                    <span>${place.isFree ? 'Бесплатно' : 'Платно'}</span>
+                </div>
+                <div class="place-meta">${place.tags ? place.tags.substring(0, 60) : ''}</div>
+            </div>
+        `).join('');
+    }
+
+    // ========== Сканирование места ==========
+    window.scanPlace = async function(placeId, placeName) {
+        const confirmScan = confirm(`Отсканировать "${placeName}"?\nВы получите +10 баллов!`);
+        if (!confirmScan) return;
+
+        const result = await api.scanPlace(`place_${placeId}`, sessionId, placeId);
+        if (result.success) {
+            currentTrackId = result.trackId;
+            alert(`✅ +10 баллов!\n${result.placeName}`);
+            await updatePoints();
+            showReactionPrompt(result.trackId, placeName);
+        } else {
+            alert('❌ Ошибка: ' + (result.error || 'Неизвестная ошибка'));
+        }
+    };
+
+    // Сканирование через камеру
+    document.getElementById('scanPlaceBtn').onclick = () => {
+        startScanner(async (qrValue) => {
+            // Пытаемся извлечь placeId из QR-кода
+            // Ожидаемый формат: "place_123" или просто "123"
+            let placeId = null;
+            if (qrValue.startsWith('place_')) {
+                placeId = parseInt(qrValue.replace('place_', ''));
+            } else if (!isNaN(parseInt(qrValue))) {
+                placeId = parseInt(qrValue);
+            } else {
+                // Если не удалось определить - просим ввести
+                placeId = parseInt(prompt('Не удалось определить место по QR. Введите ID места:', '1'));
+            }
+
+            if (placeId) {
+                const places = await api.getPlaces();
+                const place = places.find(p => p.id === placeId);
+                const placeName = place ? place.name : `Место ${placeId}`;
+                await scanPlace(placeId, placeName);
+            } else {
+                alert('Не удалось определить место. Используйте ручной выбор из списка.');
+            }
+        }, 'scan');
+    };
+
+    // ========== Реакции ==========
+    function showReactionPrompt(trackId, placeName) {
+        const reaction = prompt(`Как вам "${placeName}"?\nВведите:\n- positive (понравилось)\n- neutral (нормально)\n- negative (не понравилось)`, 'positive');
+        if (reaction && ['positive', 'neutral', 'negative'].includes(reaction.toLowerCase())) {
+            addReaction(trackId, reaction.toLowerCase());
+        }
+    }
+
+    async function addReaction(trackId, reactionType) {
+        const result = await api.addReaction(trackId, reactionType, '');
+        if (result.success) {
+            alert(`❤️ Спасибо за отзыв! +5 баллов`);
+            await updatePoints();
+        }
+    }
+
+    // ========== Баллы ==========
+    async function updatePoints() {
+        if (!userId) return;
+        const stats = await api.getStats(userId);
+        pointsValue.innerText = `${stats.pointsBalance || 0} баллов`;
+    }
+
+    // ========== Статистика ==========
+    async function loadStats() {
+        if (!userId) return;
+        const stats = await api.getStats(userId);
+        document.getElementById('statsContent').innerHTML = `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                <span>Всего визитов:</span>
+                <span style="color: #ffd700; font-weight: 600;">${stats.totalVisits || 0}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                <span>Посещено мест:</span>
+                <span style="color: #ffd700; font-weight: 600;">${stats.totalPlacesVisited || 0}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>Накоплено баллов:</span>
+                <span style="color: #ffd700; font-weight: 600;">${stats.pointsBalance || 0}</span>
+            </div>
+        `;
+    }
+
+    // ========== AI Маршрут ==========
+    document.getElementById('getRouteBtn').onclick = async () => {
+        const preferences = document.getElementById('preferencesInput').value;
+        const btn = document.getElementById('getRouteBtn');
+        const originalText = btn.innerText;
+        btn.innerText = '🤔 AI анализирует...';
+        btn.disabled = true;
+
+        const result = await api.recommendRoute(userId, preferences);
+
+        btn.innerText = originalText;
+        btn.disabled = false;
+
+        const container = document.getElementById('routeResult');
+        if (result.success) {
+            lastRecommendation = result.route;
+            container.innerHTML = `
+                <div class="card">
+                    <p style="line-height: 1.5;">🤖 ${result.route}</p>
+                    <button id="saveRouteBtn" style="margin-top: 16px;">💾 Сохранить маршрут</button>
+                </div>
+            `;
+            document.getElementById('saveRouteBtn').onclick = async () => {
+                const saveResult = await api.saveRoute(userId, sessionId, lastRecommendation, []);
+                if (saveResult.success) {
+                    alert('✅ Маршрут сохранён!');
+                } else {
+                    alert('❌ Ошибка сохранения');
+                }
+            };
+        } else {
+            container.innerHTML = `<div class="card">❌ Ошибка: ${result.error}</div>`;
+        }
+    };
+
+    // ========== Табы ==========
+    function switchTab(tabId) {
+        const placesTab = document.getElementById('placesTab');
+        const routeTab = document.getElementById('routeTab');
+        const profileTab = document.getElementById('profileTab');
+        const tabs = document.querySelectorAll('.tab');
+
+        placesTab.classList.add('hidden');
+        routeTab.classList.add('hidden');
+        profileTab.classList.add('hidden');
+
+        tabs.forEach(tab => tab.classList.remove('active'));
+
+        if (tabId === 'places') {
+            placesTab.classList.remove('hidden');
+            tabs[0].classList.add('active');
+        } else if (tabId === 'route') {
+            routeTab.classList.remove('hidden');
+            tabs[1].classList.add('active');
+        } else if (tabId === 'profile') {
+            profileTab.classList.remove('hidden');
+            tabs[2].classList.add('active');
+            loadStats();
+        }
+    }
+
+    document.querySelectorAll('.tab').forEach((tab, index) => {
+        tab.onclick = () => {
+            const tabsMap = ['places', 'route', 'profile'];
+            switchTab(tabsMap[index]);
+        };
+    });
+</script>
+</body>
+</html>
